@@ -31,12 +31,12 @@ export function SourceCard({ sources }: SourceCardProps) {
     event.stopPropagation();
     setError(null);
 
-    if (!source.document_db_id) {
+    if (source.document_db_id == null) {
       setError("Document ID is unavailable. Please refresh and try again.");
       return;
     }
 
-    // Open a blank tab immediately to avoid browser popup blocking.
+    // Open synchronously to avoid popup blockers.
     const newWindow = window.open("", "_blank");
 
     if (!newWindow) {
@@ -48,15 +48,16 @@ export function SourceCard({ sources }: SourceCardProps) {
       setLoadingIndex(index);
 
       const pdfBlob = await api.viewDocument(source.document_db_id);
+
+      if (pdfBlob.type && !pdfBlob.type.includes("pdf")) {
+        throw new Error("The server did not return a PDF file.");
+      }
+
       const pdfUrl = URL.createObjectURL(pdfBlob);
 
-      // Open the PDF at the cited page.
-      newWindow.location.href = `${pdfUrl}#page=${source.page_number || 1}`;
+      newWindow.location.href =
+        `${pdfUrl}#page=${source.page_number || 1}`;
 
-      // Release the temporary browser URL later.
-      window.setTimeout(() => {
-        URL.revokeObjectURL(pdfUrl);
-      }, 60000);
     } catch (err) {
       newWindow.close();
 
@@ -72,8 +73,10 @@ export function SourceCard({ sources }: SourceCardProps) {
 
   return (
     <div className="mt-3 pt-3 border-t border-slate-100">
+
       {/* Sources Accordion Toggle */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#1E60FF] transition-colors mb-2"
       >
@@ -92,30 +95,40 @@ export function SourceCard({ sources }: SourceCardProps) {
 
       {isOpen && (
         <div className="space-y-2">
+
           {sources.map((source, index) => {
             const isExpanded = expandedIndex === index;
             const isLoading = loadingIndex === index;
 
             return (
               <div
-                key={index}
+                key={`${source.document_db_id}-${source.page_number}-${index}`}
                 className="rounded-xl border border-slate-200/90 bg-[#F8FAFC] hover:bg-white hover:border-[#1E60FF]/40 transition-all overflow-hidden"
               >
-                <div
-                  onClick={() =>
-                    setExpandedIndex(isExpanded ? null : index)
-                  }
-                  className="flex items-center justify-between p-2.5 cursor-pointer select-none"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center justify-between p-2.5">
+
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+
                     <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
                       <FileText className="w-4 h-4" />
                     </div>
 
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-slate-800 truncate">
+                    <div className="min-w-0 flex-1">
+
+                      {/* Clicking document title opens PDF */}
+                      <button
+                        type="button"
+                        onClick={(event) =>
+                          handleOpenPDF(event, source, index)
+                        }
+                        disabled={
+                          isLoading || source.document_db_id == null
+                        }
+                        className="text-left w-full text-xs font-bold text-slate-800 hover:text-[#1E60FF] truncate disabled:opacity-50"
+                        title="Open original PDF"
+                      >
                         {source.document_title}
-                      </h4>
+                      </button>
 
                       <p className="text-[11px] text-slate-500">
                         Page {source.page_number} • Similarity:{" "}
@@ -129,13 +142,16 @@ export function SourceCard({ sources }: SourceCardProps) {
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
+
                     {/* Open Original PDF */}
                     <button
                       type="button"
                       onClick={(event) =>
                         handleOpenPDF(event, source, index)
                       }
-                      disabled={isLoading || !source.document_db_id}
+                      disabled={
+                        isLoading || source.document_db_id == null
+                      }
                       title="Open original PDF"
                       className="text-slate-400 hover:text-[#1E60FF] disabled:opacity-40 p-1.5 rounded-md hover:bg-blue-50 transition-colors"
                     >
@@ -146,19 +162,28 @@ export function SourceCard({ sources }: SourceCardProps) {
                       )}
                     </button>
 
-                    {/* Expand / Collapse */}
-                    <div className="text-slate-400 hover:text-slate-600 p-1">
+                    {/* Expand / Collapse Excerpt */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedIndex(isExpanded ? null : index)
+                      }
+                      title={isExpanded ? "Collapse excerpt" : "Show excerpt"}
+                      className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100"
+                    >
                       {isExpanded ? (
                         <ChevronDown className="w-4 h-4" />
                       ) : (
                         <ChevronRight className="w-4 h-4" />
                       )}
-                    </div>
+                    </button>
+
                   </div>
                 </div>
 
                 {isExpanded && (
                   <div className="px-3 pb-3 pt-1 border-t border-slate-100 text-xs text-slate-600 bg-white leading-relaxed">
+
                     <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                       Matched Document Excerpt:
                     </p>
@@ -167,11 +192,13 @@ export function SourceCard({ sources }: SourceCardProps) {
                       "{source.content_snippet ||
                         "Relevant document context utilized for answering this query."}"
                     </p>
+
                   </div>
                 )}
               </div>
             );
           })}
+
         </div>
       )}
     </div>

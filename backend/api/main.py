@@ -302,6 +302,7 @@ def query_documents(
             unique_sources.append({
                 "document_title": chunk["document_title"],
                 "document_id": chunk["document_id"],
+                "document_db_id": chunk["document_db_id"],
                 "department": chunk.get("department"),
                 "page_number": chunk["page_number"],
                 "chunk_id": chunk["chunk_id"],

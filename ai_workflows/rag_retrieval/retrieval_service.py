@@ -1,4 +1,6 @@
+
 from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from backend.database.models import Document, DocumentChunk
@@ -18,14 +20,20 @@ def search_similar_chunks(
     if db.bind and db.bind.dialect.name != "postgresql":
         return []
 
-    query_embedding = generate_embedding(query, task_type="RETRIEVAL_QUERY")
+    query_embedding = generate_embedding(
+        query,
+        task_type="RETRIEVAL_QUERY",
+    )
 
-    distance_expression = DocumentChunk.embedding.cosine_distance(query_embedding)
+    distance_expression = DocumentChunk.embedding.cosine_distance(
+        query_embedding
+    )
 
     db_query = (
         db.query(
             DocumentChunk,
             Document.title,
+            Document.id.label("document_db_id"),
             Document.document_id.label("document_code"),
             Document.department,
             distance_expression.label("distance"),
@@ -36,7 +44,9 @@ def search_similar_chunks(
     )
 
     if department and department.strip():
-        db_query = db_query.filter(Document.department.ilike(department.strip()))
+        db_query = db_query.filter(
+            Document.department.ilike(department.strip())
+        )
 
     results = db_query.order_by(distance_expression).limit(top_k).all()
 
@@ -44,11 +54,12 @@ def search_similar_chunks(
 
     print("\n--- RETRIEVAL DEBUG ---")
 
-    for chunk, title, document_code, dept, distance in results:
+    for chunk, title, document_db_id, document_code, dept, distance in results:
         similarity = float(1.0 - distance)
 
         print(
             f"Retrieved: {title} | "
+            f"Database ID: {document_db_id} | "
             f"Page: {chunk.page_number} | "
             f"Similarity: {similarity:.4f}"
         )
@@ -56,6 +67,7 @@ def search_similar_chunks(
         retrieved_chunks.append({
             "document_title": title,
             "document_id": document_code,
+            "document_db_id": document_db_id,
             "department": dept,
             "chunk_id": chunk.id,
             "chunk_index": chunk.chunk_index,
