@@ -19,7 +19,7 @@ client = genai.Client(
     http_options=types.HttpOptions(timeout=30000),
 )
 
-GENERATION_MODEL = os.getenv("LLM_MODEL") or "gemini-3.1-flash-lite"
+GENERATION_MODEL = os.getenv("LLM_MODEL") or "gemini-3.8-flash"
 
 NOT_AVAILABLE_MESSAGE = (
     "The available documents do not contain sufficient information "

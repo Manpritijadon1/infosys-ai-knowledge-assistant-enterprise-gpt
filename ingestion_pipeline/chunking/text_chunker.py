@@ -1,7 +1,7 @@
 def chunk_text(
     pages: list[dict],
-    chunk_size: int = 1000,
-    chunk_overlap: int = 200,
+    chunk_size: int = 850,
+    chunk_overlap: int = 150,
 ) -> list[dict]:
     """Split PDF pages into overlapping text chunks without cutting words in half."""
     if chunk_size <= 0:

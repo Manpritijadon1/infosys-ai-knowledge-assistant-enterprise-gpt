@@ -6,14 +6,14 @@ from sqlalchemy.orm import Session
 from backend.database.models import Document, DocumentChunk
 from backend.services.embedding_service import generate_embedding
 
-SIMILARITY_THRESHOLD = 0.55
+SIMILARITY_THRESHOLD = 0.60
 DISTANCE_THRESHOLD = 1.0 - SIMILARITY_THRESHOLD
 
 
 def search_similar_chunks(
     db: Session,
     query: str,
-    top_k: int = 10,
+    top_k: int = 5,
     department: Optional[str] = None,
 ) -> list[dict]:
     """Search pgvector for document chunks matching the query."""
