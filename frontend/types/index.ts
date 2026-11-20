@@ -1,3 +1,4 @@
+
 export type UserRole = "Admin" | "Employee";
 
 export interface User {
@@ -12,6 +13,7 @@ export interface User {
 export interface SourceCitation {
   document_title: string;
   document_id: string;
+  document_db_id?: number;
   department?: string;
   page_number: number;
   chunk_id?: number;

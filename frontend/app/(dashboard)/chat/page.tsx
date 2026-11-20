@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
@@ -68,6 +69,7 @@ function ChatAssistantContent() {
         (s: any) => ({
           document_title: s.document_title || "Enterprise Document",
           document_id: s.document_id || `DOC-${s.chunk_id || "REF"}`,
+          document_db_id: s.document_db_id,
           department: s.department,
           page_number: s.page_number || 1,
           similarity: s.similarity || 0.725,
@@ -101,6 +103,7 @@ function ChatAssistantContent() {
         }),
         sources: [],
       };
+
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -114,10 +117,12 @@ function ChatAssistantContent() {
 
   const renderFormattedText = (text: string) => {
     const lines = text.split("\n");
+
     return lines.map((line, idx) => {
       if (line.startsWith("• ") || line.startsWith("- ")) {
         const itemText = line.replace(/^[•-]\s+/, "");
         const parts = itemText.split(/(\*\*.*?\*\*)/g);
+
         return (
           <li key={idx} className="ml-4 list-disc text-slate-800 my-1">
             {parts.map((p, i) =>
@@ -132,10 +137,13 @@ function ChatAssistantContent() {
           </li>
         );
       }
+
       if (line.trim() === "") {
         return <div key={idx} className="h-2" />;
       }
+
       const parts = line.split(/(\*\*.*?\*\*)/g);
+
       return (
         <p key={idx} className="my-1 leading-relaxed text-slate-800">
           {parts.map((p, i) =>
@@ -193,7 +201,9 @@ function ChatAssistantContent() {
                 Infosys AI Knowledge Assistant
               </h3>
               <p className="text-xs text-slate-400 mt-1.5 max-w-md leading-relaxed">
-                Ask questions regarding company policies, benefits, travel allowances, HR manuals, or IT guidelines. Responses are strictly grounded in authorized enterprise documentation.
+                Ask questions regarding company policies, benefits, travel
+                allowances, HR manuals, or IT guidelines. Responses are
+                strictly grounded in authorized enterprise documentation.
               </p>
             </div>
           )}
@@ -269,7 +279,9 @@ function ChatAssistantContent() {
               </div>
               <div className="bg-white border border-slate-200/90 rounded-2xl rounded-tl-none p-4 shadow-card flex items-center gap-2 text-xs text-slate-500">
                 <Loader2 className="w-4 h-4 animate-spin text-[#1E60FF]" />
-                <span>Searching documents and synthesizing grounded answer...</span>
+                <span>
+                  Searching documents and synthesizing grounded answer...
+                </span>
               </div>
             </div>
           )}
@@ -279,7 +291,10 @@ function ChatAssistantContent() {
 
         {/* Fixed Question Input at Bottom matching reference UI */}
         <div className="p-4 bg-white border-t border-slate-200/90 shrink-0">
-          <form onSubmit={handleFormSubmit} className="relative flex items-center">
+          <form
+            onSubmit={handleFormSubmit}
+            className="relative flex items-center"
+          >
             <button
               type="button"
               className="absolute left-3.5 text-slate-400 hover:text-slate-600 transition-colors"
@@ -287,6 +302,7 @@ function ChatAssistantContent() {
             >
               <Paperclip className="w-4 h-4" />
             </button>
+
             <input
               type="text"
               value={inputText}
@@ -295,6 +311,7 @@ function ChatAssistantContent() {
               placeholder="Type your question here..."
               className="w-full pl-10 pr-12 py-3 bg-[#F4F7FC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1E60FF] focus:bg-white transition-all disabled:opacity-50"
             />
+
             <button
               type="submit"
               disabled={!inputText.trim() || isLoading}
