@@ -13,7 +13,7 @@ DISTANCE_THRESHOLD = 1.0 - SIMILARITY_THRESHOLD
 def search_similar_chunks(
     db: Session,
     query: str,
-    top_k: int = 5,
+    top_k: int = 4,
     department: Optional[str] = None,
 ) -> list[dict]:
     """Search pgvector for document chunks matching the query."""
