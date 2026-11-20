@@ -241,41 +241,98 @@ def view_document_file(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Retrieve a document PDF from the configured Cloudflare R2 bucket."""
     document = db.query(Document).filter(Document.id == doc_id).first()
 
-    if not document:
+    if document is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
 
+    # Validate configuration before creating the S3-compatible client.
+    bucket_name = os.getenv("R2_BUCKET_NAME")
+    endpoint_url = os.getenv("R2_ENDPOINT_URL")
+    access_key_id = os.getenv("R2_ACCESS_KEY_ID")
+    secret_access_key = os.getenv("R2_SECRET_ACCESS_KEY")
+    storage_key = document.storage_key
+
+    missing_settings = [
+        name
+        for name, value in (
+            ("R2_BUCKET_NAME", bucket_name),
+            ("R2_ENDPOINT_URL", endpoint_url),
+            ("R2_ACCESS_KEY_ID", access_key_id),
+            ("R2_SECRET_ACCESS_KEY", secret_access_key),
+        )
+        if not value
+    ]
+
+    if missing_settings:
+        print("R2 configuration is missing:", ", ".join(missing_settings))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Cloud storage is not configured correctly",
+        )
+
+    if not storage_key:
+        print(f"Document {doc_id} has an empty storage_key")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This document has no cloud storage file reference",
+        )
+
     try:
         s3 = boto3.client(
             "s3",
-            endpoint_url=os.getenv("R2_ENDPOINT_URL"),
-            aws_access_key_id=os.getenv("R2_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("R2_SECRET_ACCESS_KEY"),
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key,
             region_name="auto",
         )
 
-        response = s3.get_object(
-            Bucket=os.getenv("R2_BUCKET_NAME"),
-            Key=document.storage_key,
+        r2_object = s3.get_object(
+            Bucket=bucket_name,
+            Key=storage_key,
         )
 
+        body = r2_object["Body"]
+
+        def stream_pdf():
+            try:
+                for chunk in body.iter_chunks(chunk_size=1024 * 1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                body.close()
+
+        # Avoid unsafe characters in the inline filename header.
+        filename = (document.filename or "document.pdf").replace('"', "")
+
         return StreamingResponse(
-            response["Body"].iter_chunks(),
+            stream_pdf(),
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f'inline; filename="{document.filename}"'
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Cache-Control": "private, no-store",
+                "X-Content-Type-Options": "nosniff",
             },
         )
 
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to retrieve PDF from cloud storage",
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Full details stay in the backend logs; do not expose credentials or
+        # provider internals in the API response.
+        print(
+            f"R2 PDF retrieval failed for document_id={doc_id}, "
+            f"bucket={bucket_name!r}, storage_key={storage_key!r}: "
+            f"{type(exc).__name__}: {exc}"
         )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to retrieve PDF from cloud storage. Check backend logs.",
+        ) from exc
 
 @app.post("/query", response_model=QueryResponse)
 def query_documents(
