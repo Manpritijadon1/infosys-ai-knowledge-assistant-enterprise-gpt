@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Bell, LogOut, User as UserIcon, ChevronDown } from "lucide-react";
+import { Search, LogOut, User as UserIcon, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export function Header() {
@@ -30,7 +31,7 @@ export function Header() {
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10">
-      {/* Search Bar matching reference UI */}
+      {/* Search Bar */}
       <form onSubmit={handleSearchSubmit} className="relative w-96">
         <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
         <input
@@ -42,17 +43,8 @@ export function Header() {
         />
       </form>
 
-      {/* Right Controls: Notification & User Badge */}
-      <div className="flex items-center gap-4">
-        <button
-          className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full relative transition-colors"
-          title="Notifications"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="w-2 h-2 bg-[#1E60FF] rounded-full absolute top-1.5 right-1.5 ring-2 ring-white" />
-        </button>
-
-        {/* User Pill / Profile dropdown */}
+      {/* User Profile */}
+      <div className="flex items-center">
         <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
@@ -61,6 +53,7 @@ export function Header() {
             <div className="w-9 h-9 rounded-full bg-[#1E60FF] text-white flex items-center justify-center font-semibold text-xs shadow-sm">
               {getInitials(user?.full_name)}
             </div>
+
             <div className="hidden md:block">
               <div className="text-sm font-semibold text-slate-800 leading-tight">
                 {user?.full_name || "User"}
@@ -69,6 +62,7 @@ export function Header() {
                 {role}
               </div>
             </div>
+
             <ChevronDown className="w-4 h-4 text-slate-400" />
           </button>
 

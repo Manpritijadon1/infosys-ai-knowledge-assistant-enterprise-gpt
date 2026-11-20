@@ -5,13 +5,10 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Send,
-  Paperclip,
-  Bot,
   User as UserIcon,
   Sparkles,
   Loader2,
   RefreshCw,
-  AlertCircle,
 } from "lucide-react";
 import { ChatMessage, SourceCitation } from "@/types";
 import { SourceCard } from "@/components/chat/SourceCard";
@@ -37,14 +34,17 @@ function ChatAssistantContent() {
   // Handle incoming query param from search or popular topics
   useEffect(() => {
     const queryParam = searchParams?.get("q");
+
     if (queryParam) {
       handleSendMessage(queryParam);
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const question = (textToSend || inputText).trim();
+
     if (!question || isLoading) return;
 
     const userMessage: ChatMessage = {
@@ -170,6 +170,7 @@ function ChatAssistantContent() {
             <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#1E60FF] flex items-center justify-center border border-blue-100">
               <Sparkles className="w-5 h-5" />
             </div>
+
             <div>
               <h2 className="text-sm font-bold text-slate-900 leading-tight">
                 AI Knowledge Assistant
@@ -197,9 +198,11 @@ function ChatAssistantContent() {
               <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#1E60FF] flex items-center justify-center mb-4 border border-blue-100">
                 <Sparkles className="w-7 h-7" />
               </div>
+
               <h3 className="text-base font-bold text-slate-800">
                 Infosys AI Knowledge Assistant
               </h3>
+
               <p className="text-xs text-slate-400 mt-1.5 max-w-md leading-relaxed">
                 Ask questions regarding company policies, benefits, travel
                 allowances, HR manuals, or IT guidelines. Responses are
@@ -277,6 +280,7 @@ function ChatAssistantContent() {
               <div className="w-8 h-8 rounded-full bg-[#0B192C] text-white flex items-center justify-center text-[10px] font-bold">
                 AI
               </div>
+
               <div className="bg-white border border-slate-200/90 rounded-2xl rounded-tl-none p-4 shadow-card flex items-center gap-2 text-xs text-slate-500">
                 <Loader2 className="w-4 h-4 animate-spin text-[#1E60FF]" />
                 <span>
@@ -289,27 +293,19 @@ function ChatAssistantContent() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Fixed Question Input at Bottom matching reference UI */}
+        {/* Fixed Question Input at Bottom */}
         <div className="p-4 bg-white border-t border-slate-200/90 shrink-0">
           <form
             onSubmit={handleFormSubmit}
             className="relative flex items-center"
           >
-            <button
-              type="button"
-              className="absolute left-3.5 text-slate-400 hover:text-slate-600 transition-colors"
-              title="Attach context file (mock)"
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               disabled={isLoading}
               placeholder="Type your question here..."
-              className="w-full pl-10 pr-12 py-3 bg-[#F4F7FC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1E60FF] focus:bg-white transition-all disabled:opacity-50"
+              className="w-full pl-4 pr-12 py-3 bg-[#F4F7FC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1E60FF] focus:bg-white transition-all disabled:opacity-50"
             />
 
             <button
@@ -324,7 +320,7 @@ function ChatAssistantContent() {
         </div>
       </div>
 
-      {/* RIGHT: Permanent Suggested Questions Panel matching reference UI */}
+      {/* RIGHT: Permanent Suggested Questions Panel */}
       <SuggestedQuestions
         onSelectQuestion={(q) => handleSendMessage(q)}
         disabled={isLoading}
