@@ -1,3 +1,4 @@
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export function getToken(): string | null {
@@ -32,21 +33,15 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-  } catch (networkError: any) {
-    throw new Error(
-      `Unable to connect to backend server at ${API_BASE_URL}. Please ensure FastAPI is running.`
-    );
+    response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+  } catch {
+    throw new Error(`Unable to connect to backend server at ${API_BASE_URL}. Please ensure FastAPI is running.`);
   }
 
   if (!response.ok) {
     let errorDetail = "An unexpected error occurred";
     try {
-      const errorJson = await response.json();
-      errorDetail = errorJson.detail || errorDetail;
+      errorDetail = (await response.json()).detail || errorDetail;
     } catch {
       errorDetail = response.statusText || `Request failed with status ${response.status}`;
     }
@@ -92,6 +87,14 @@ export const api = {
   // Documents
   getDocuments: () => request<any[]>("/documents"),
 
+  viewDocument: async (id: number): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}/documents/${id}/file`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!response.ok) throw new Error("Unable to load PDF document");
+    return response.blob();
+  },
+
   uploadDocument: (formData: FormData) =>
     request<any>("/documents/upload", {
       method: "POST",
@@ -118,17 +121,15 @@ export const api = {
 
   // Query History
   getQueryHistory: () =>
-    request<
-      Array<{
-        id: number;
-        question: string;
-        answer: string;
-        department?: string;
-        sources: any[];
-        has_sufficient_evidence: boolean;
-        created_at: string;
-      }>
-    >("/queries/history"),
+    request<Array<{
+      id: number;
+      question: string;
+      answer: string;
+      department?: string;
+      sources: any[];
+      has_sufficient_evidence: boolean;
+      created_at: string;
+    }>>("/queries/history"),
 
   clearQueryHistory: () =>
     request<{ message: string; deleted_count: number }>("/queries/history", {
@@ -168,4 +169,3 @@ export const api = {
       }>;
     }>("/analytics/dashboard-stats"),
 };
-

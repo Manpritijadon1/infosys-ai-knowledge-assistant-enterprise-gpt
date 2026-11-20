@@ -1,0 +1,10 @@
+﻿id,full_name,email,hashed_password,role_name,is_active,created_at
+1,Demo User,demo@example.com,$2b$12$i0R0Nyv.kv2htL7HjOoe4uM0hhBCkkeSL1HMeJNpGBFCzF61FFiXa,Employee,t,2026-10-30 16:13:30.145868+00
+2,Demo2,demo2@example.com,$2b$12$yWUMRV8gEptSTE7/Ipbu4ew54mYzgqLgQISs/EIP0BWM/LCupONKy,Employee,t,2026-10-30 16:15:47.379307+00
+3,Demo Three,demo3@example.com,$2b$12$0y6TqglJ9ww/wNweB8L55Ovmb4zr1ElJ8Qhc/NZ9xqjV0hZ.z2pkW,Admin,t,2026-10-30 16:56:29.579773+00
+4,Arjun Sharma,arjun.sharma.admin@infosys-demo.com,$2b$12$Bnseeq.awSVXUkp1AKtojeJIL3QtUOX8nPaoThcSkvR2fqWjhRfme,Admin,t,2026-10-30 18:27:40.286727+00
+5,Test Employee,test_employee@infosys.com,$2b$12$UhUkPcLgZinwH01OgCPTcObOoZGxQqxwE9mVWX08dI/tDwGef7Q4u,Employee,t,2026-10-31 06:09:25.539562+00
+6,string,user@example.com,$2b$12$74/tQ6Sz0zs/Gn0sSzi7WOAwp87wCjqIbXR2JPHWGge/Qc62WKG9.,Employee,t,2026-10-31 15:11:30.147042+00
+7,string,useer@example.com,$2b$12$LBKXDs28XmkAtin//fLEEO2c995jvxyKI7VliA6KiMBMRdLkn5sz.,Employee,t,2026-10-31 15:11:57.31392+00
+9,keep,keep@gmail.com,$2b$12$B1swdaWEXLgq/b3QdrWrne8OzIOJP2poIBojQCpiXdGNVw4KfG.Xe,Employee,t,2026-11-17 14:12:34.989577+00
+10,Siddhant,siddhant@example.com,$2b$12$LQpZaTVsg0n93rLNeAp.CO72X8Df1qiMbKKnpyhNg7fzZuFoBCOKe,Employee,t,2026-11-17 14:25:07.729086+00

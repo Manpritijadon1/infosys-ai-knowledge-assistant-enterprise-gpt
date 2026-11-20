@@ -1,6 +1,10 @@
+
+import os
+import tempfile
 from pathlib import Path
 from uuid import uuid4
 
+import boto3
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -9,11 +13,18 @@ from ingestion_pipeline.chunking.text_chunker import chunk_text
 from ingestion_pipeline.document_parsing.pdf_parser import extract_text_from_pdf
 from ingestion_pipeline.embedding_jobs.embedding_job import generate_document_embeddings
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
-
 ALLOWED_EXTENSIONS = {".pdf"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+def get_r2_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=os.getenv("R2_ENDPOINT_URL"),
+        aws_access_key_id=os.getenv("R2_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("R2_SECRET_ACCESS_KEY"),
+        region_name="auto",
+    )
 
 
 async def save_document(
@@ -53,16 +64,25 @@ async def save_document(
             detail="File size exceeds 10 MB limit",
         )
 
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
     stored_filename = f"{uuid4().hex}.pdf"
-    file_path = UPLOAD_DIR / stored_filename
+    storage_key = f"documents/{stored_filename}"
+    bucket_name = os.getenv("R2_BUCKET_NAME")
+
+    if not bucket_name or not os.getenv("R2_ENDPOINT_URL"):
+        raise RuntimeError("Cloudflare R2 environment variables are missing")
+
     document = None
+    uploaded_to_r2 = False
+    file_path = None
 
     try:
-        file_path.write_bytes(content)
+        # Temporary file is used only for existing PDF text extraction
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+            file_path = Path(temp_file.name)
+            temp_file.write(content)
 
         pages = extract_text_from_pdf(str(file_path))
+
         if not pages:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -75,13 +95,22 @@ async def save_document(
             chunk_overlap=200,
         )
 
+        # Upload original PDF to private Cloudflare R2 bucket
+        get_r2_client().put_object(
+            Bucket=bucket_name,
+            Key=storage_key,
+            Body=content,
+            ContentType="application/pdf",
+        )
+        uploaded_to_r2 = True
+
         document = Document(
             document_id=f"DOC-{uuid4().hex[:12].upper()}",
             title=title.strip(),
             filename=file.filename,
             department=department.strip() if department else "General",
             document_type=document_type.strip() if document_type else "SOP",
-            storage_key=str(file_path),
+            storage_key=storage_key,
             uploaded_by=current_user.id,
             access_scope=access_scope,
         )
@@ -122,7 +151,6 @@ async def save_document(
     except Exception:
         db.rollback()
 
-        # If document was already committed before embedding failed, remove it
         if document is not None and document.id is not None:
             try:
                 db.delete(document)
@@ -130,15 +158,26 @@ async def save_document(
             except Exception:
                 db.rollback()
 
-        if file_path.exists():
-            file_path.unlink()
+        if uploaded_to_r2:
+            try:
+                get_r2_client().delete_object(
+                    Bucket=bucket_name,
+                    Key=storage_key,
+                )
+            except Exception:
+                pass
 
         raise
 
+    finally:
+        if file_path and file_path.exists():
+            file_path.unlink()
+
 
 def delete_document_by_id(doc_id: int, db: Session) -> None:
-    """Delete a document by ID along with its file and cascading chunks."""
+    """Delete a document from R2 and its database records."""
     document = db.query(Document).filter(Document.id == doc_id).first()
+
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -146,12 +185,16 @@ def delete_document_by_id(doc_id: int, db: Session) -> None:
         )
 
     if document.storage_key:
-        file_path = Path(document.storage_key)
-        if file_path.exists():
-            try:
-                file_path.unlink()
-            except OSError:
-                pass
+        try:
+            get_r2_client().delete_object(
+                Bucket=os.getenv("R2_BUCKET_NAME"),
+                Key=document.storage_key,
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not delete document from cloud storage",
+            )
 
     db.delete(document)
-    db.commit()
+    db.commit()

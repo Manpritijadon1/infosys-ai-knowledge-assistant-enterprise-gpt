@@ -1,20 +1,11 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Search,
-  Plus,
-  Eye,
-  Download,
-  Trash2,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
-  AlertCircle,
-  CheckCircle2,
-  Layers,
+  Search, Plus, Eye, Download, Trash2, FileText,
+  ChevronLeft, ChevronRight, RefreshCw, AlertCircle, CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DocumentItem } from "@/types";
@@ -24,24 +15,28 @@ import { api } from "@/lib/api";
 
 export default function DocumentManagementPage() {
   const { isAdmin } = useAuth();
+
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("All Departments");
   const [currentPage, setCurrentPage] = useState(1);
   const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
   const itemsPerPage = 10;
 
+  // Load documents
   const loadDocuments = async () => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const data = await api.getDocuments();
-      setDocuments(data || []);
+      setDocuments((await api.getDocuments()) || []);
     } catch (err: any) {
       setFetchError(err.message || "Failed to load documents from server.");
     } finally {
@@ -53,12 +48,43 @@ export default function DocumentManagementPage() {
     loadDocuments();
   }, []);
 
-  // Filter logic
+  // Release temporary PDF URL
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+  }, [pdfUrl]);
+
+  // PDF preview
+  const handlePreview = async (doc: DocumentItem) => {
+    setPreviewDoc(doc);
+    setPdfUrl(null);
+    setPdfError(null);
+    setPdfLoading(true);
+
+    try {
+      const blob = await api.viewDocument(doc.id);
+      setPdfUrl(URL.createObjectURL(blob));
+    } catch (err: any) {
+      setPdfError(err.message || "Unable to load PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewDoc(null);
+    setPdfUrl(null);
+    setPdfError(null);
+  };
+
+  // Filter documents
   const filteredDocs = documents.filter((doc) => {
-    const titleMatch = (doc.title || "").toLowerCase().includes(search.toLowerCase());
-    const fileMatch = (doc.filename || "").toLowerCase().includes(search.toLowerCase());
-    const deptMatch = (doc.department || "").toLowerCase().includes(search.toLowerCase());
-    const matchesSearch = titleMatch || fileMatch || deptMatch;
+    const term = search.toLowerCase();
+    const matchesSearch =
+      (doc.title || "").toLowerCase().includes(term) ||
+      (doc.filename || "").toLowerCase().includes(term) ||
+      (doc.department || "").toLowerCase().includes(term);
 
     const matchesDept =
       selectedDept === "All Departments" ||
@@ -67,7 +93,7 @@ export default function DocumentManagementPage() {
     return matchesSearch && matchesDept;
   });
 
-  // Pagination calculation
+  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredDocs.length / itemsPerPage));
   const paginatedDocs = filteredDocs.slice(
     (currentPage - 1) * itemsPerPage,
@@ -80,18 +106,17 @@ export default function DocumentManagementPage() {
     setCurrentPage(1);
   };
 
+  // Delete document
   const handleDelete = async (id: number, title: string) => {
     if (!isAdmin) return;
-    if (
-      !confirm(
-        `Are you sure you want to delete "${title}" from the knowledge base? This action cannot be undone.`
-      )
-    ) {
+
+    if (!confirm(`Are you sure you want to delete "${title}" from the knowledge base? This action cannot be undone.`)) {
       return;
     }
 
     setActionError(null);
     setActionSuccess(null);
+
     try {
       await api.deleteDocument(id);
       setActionSuccess(`Document "${title}" was successfully deleted.`);
@@ -105,16 +130,14 @@ export default function DocumentManagementPage() {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "—";
-    try {
-      const date = new Date(dateString);
-      return isNaN(date.getTime()) ? dateString : date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return dateString;
-    }
+    const date = new Date(dateString);
+    return isNaN(date.getTime())
+      ? dateString
+      : date.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
   };
 
   return (
@@ -155,9 +178,8 @@ export default function DocumentManagementPage() {
         </div>
       )}
 
-      {/* Filter Toolbar */}
+      {/* Filters */}
       <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-card flex flex-wrap items-center gap-3">
-        {/* Search */}
         <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -172,7 +194,6 @@ export default function DocumentManagementPage() {
           />
         </div>
 
-        {/* Department Filter */}
         <select
           value={selectedDept}
           onChange={(e) => {
@@ -190,7 +211,6 @@ export default function DocumentManagementPage() {
           <option>Legal</option>
         </select>
 
-        {/* Clear Button */}
         <button
           onClick={handleClearFilters}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
@@ -198,7 +218,6 @@ export default function DocumentManagementPage() {
           Clear
         </button>
 
-        {/* Reload Button */}
         <button
           onClick={loadDocuments}
           disabled={isLoading}
@@ -209,7 +228,7 @@ export default function DocumentManagementPage() {
         </button>
       </div>
 
-      {/* Document Data Table */}
+      {/* Document Table */}
       <div className="bg-white rounded-xl border border-slate-200/90 shadow-card overflow-hidden">
         {isLoading ? (
           <div className="py-16 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
@@ -238,21 +257,20 @@ export default function DocumentManagementPage() {
                   <th className="py-3.5 px-6 text-right">Actions</th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {paginatedDocs.map((doc) => (
-                  <tr
-                    key={doc.id}
-                    className="hover:bg-slate-50/80 transition-colors"
-                  >
+                  <tr key={doc.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-4 px-6 font-semibold text-[#1E60FF] hover:underline cursor-pointer">
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span onClick={() => setPreviewDoc(doc)}>{doc.title}</span>
+                        <span onClick={() => handlePreview(doc)}>{doc.title}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 font-normal mt-0.5 ml-6">
                         {doc.filename}
                       </div>
                     </td>
+
                     <td className="py-4 px-6 font-medium text-slate-600">
                       {doc.department || "General"}
                     </td>
@@ -270,15 +288,17 @@ export default function DocumentManagementPage() {
                         Active
                       </Badge>
                     </td>
+
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-1.5 text-slate-400">
                         <button
-                          onClick={() => setPreviewDoc(doc)}
+                          onClick={() => handlePreview(doc)}
                           className="p-1.5 hover:text-[#1E60FF] hover:bg-blue-50 rounded-md transition-colors"
                           title="View Preview"
                         >
                           <Eye className="w-4 h-4 text-[#1E60FF]" />
                         </button>
+
                         {isAdmin && (
                           <button
                             onClick={() => handleDelete(doc.id, doc.title)}
@@ -307,13 +327,14 @@ export default function DocumentManagementPage() {
           </div>
         )}
 
-        {/* Pagination Toolbar */}
+        {/* Pagination */}
         {!isLoading && !fetchError && filteredDocs.length > 0 && (
           <div className="p-4 border-t border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
             <div>
               Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredDocs.length)} to{" "}
               {Math.min(currentPage * itemsPerPage, filteredDocs.length)} of {filteredDocs.length} documents
             </div>
+
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <button
@@ -323,6 +344,7 @@ export default function DocumentManagementPage() {
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
+
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
@@ -336,6 +358,7 @@ export default function DocumentManagementPage() {
                     {page}
                   </button>
                 ))}
+
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-40"
@@ -349,10 +372,10 @@ export default function DocumentManagementPage() {
         )}
       </div>
 
-      {/* Preview Modal */}
+      {/* PDF Preview Modal */}
       {previewDoc && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-xl border border-slate-200 max-h-[95vh] overflow-y-auto">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1E60FF] flex items-center justify-center">
@@ -367,15 +390,17 @@ export default function DocumentManagementPage() {
                   </p>
                 </div>
               </div>
+
               <button
-                onClick={() => setPreviewDoc(null)}
+                onClick={closePreview}
                 className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
+            {/* Document Details */}
+            <div className="space-y-3 text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100 mb-5">
               <div className="flex justify-between">
                 <span className="font-semibold text-slate-500">File Name:</span>
                 <span className="font-mono text-slate-700">{previewDoc.filename}</span>
@@ -398,10 +423,44 @@ export default function DocumentManagementPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setPreviewDoc(null)}>
+            {/* PDF Viewer */}
+            <div className="mb-5">
+              {pdfLoading && (
+                <p className="text-center text-sm text-slate-500 py-8">
+                  Loading PDF...
+                </p>
+              )}
+
+              {pdfError && (
+                <p className="text-center text-sm text-rose-600 py-8">
+                  {pdfError}
+                </p>
+              )}
+
+              {pdfUrl && (
+                <iframe
+                  src={pdfUrl}
+                  title={previewDoc.filename}
+                  className="w-full h-[500px] border rounded-lg"
+                />
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={closePreview}>
                 Close Preview
               </Button>
+
+              {pdfUrl && (
+                <a href={pdfUrl} download={previewDoc.filename}>
+                  <Button>
+                    <Download className="w-4 h-4 mr-1" />
+                    Download PDF
+                  </Button>
+                </a>
+              )}
+
               <Link href={`/chat?q=Summarize key points in ${encodeURIComponent(previewDoc.title)}`}>
                 <Button>Query This Document</Button>
               </Link>

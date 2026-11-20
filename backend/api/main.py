@@ -1,4 +1,5 @@
-
+import boto3
+from fastapi.responses import StreamingResponse
 import json
 import os
 from fastapi import (
@@ -234,7 +235,47 @@ async def upload_document(
         "uploaded_by": current_user.full_name,
         **result,
     }
+@app.get("/documents/{doc_id}/file")
+def view_document_file(
+    doc_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    document = db.query(Document).filter(Document.id == doc_id).first()
 
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=os.getenv("R2_ENDPOINT_URL"),
+            aws_access_key_id=os.getenv("R2_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("R2_SECRET_ACCESS_KEY"),
+            region_name="auto",
+        )
+
+        response = s3.get_object(
+            Bucket=os.getenv("R2_BUCKET_NAME"),
+            Key=document.storage_key,
+        )
+
+        return StreamingResponse(
+            response["Body"].iter_chunks(),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{document.filename}"'
+            },
+        )
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve PDF from cloud storage",
+        )
 
 @app.post("/query", response_model=QueryResponse)
 def query_documents(
